@@ -1,0 +1,132 @@
+---
+title: "penguin_assignment.rmd"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load libraries required
+library(palmerpenguins)
+library(ggplot2)
+suppressPackageStartupMessages(library(janitor))
+suppressPackageStartupMessages(library(dplyr))
+library(tidyr)
+library(ragg)
+library(svglite)
+library(car)
+
+```
+
+
+```{r}
+# Function to clean raw data by removing any empty columns & rows, removing columns called 'comment'/'delta' and cleaning the column names
+cleaning <- function(data_raw){
+  data_raw %>%
+    clean_names() %>%
+    remove_empty(c("rows", "cols")) %>%
+    select(-starts_with("delta")) %>%
+    select(-comments)
+}
+# Function to remove any empty values for body mass
+remove_empty_body_mass<-function(data_clean){data_clean %>%
+    filter(!is.na(body_mass_g)) %>%
+    select(species, body_mass_g)
+}
+# Function to filter the data set to only contain two species
+filter_species_tocompare<-function(penguin_bodymass, species1, species2){
+  filter(penguin_bodymass, species == species1
+ | species == species2 , .preserve= FALSE)
+}
+# Function to plot a histogram of body mass distribution and colour points by species
+plot_body_mass<-function(penguins_filtered){
+  penguins_filtered %>% 
+    ggplot( aes(x= body_mass_g, fill=species))+
+  geom_histogram(alpha=0.5, position = 'identity')+
+  xlab("Body Mass/g")+
+  ylab("Number of penguins")+
+  labs(fill="Species",)+
+  scale_fill_discrete(labels= c("Chinstrap penguin", "Gentoo penguin"))+
+  theme(legend.title = element_text( size = 7),legend.text = element_text(size = 6), legend.position = c(.89, .90), legend.key.size = unit(0.3, 'cm'))
+}
+
+# Function to save the histogram of body mass as a png file
+save_bodymass_png <- function(penguins_filtered, 
+                                  filename, size, res, scaling){
+  agg_png(filename, width   =  size,
+                    height  =  size, 
+                    units   =  "cm", 
+                    res     =  res, 
+                    scaling =  scaling)
+  body_mass_hist <- plot_body_mass(penguins_filtered)
+  print(body_mass_hist)
+  
+  dev.off()
+}
+
+# Function to save the histogram of body mass as an svg file
+save_bodymass_svg<-function(penguins_filtered,filename, size,scaling){
+  size_inches = size/2.54
+    svglite(filename, width   = size_inches, 
+                      height  = size_inches, 
+                      scaling = scaling)
+    body_mass_hist <- plot_body_mass(penguins_filtered)
+    print(body_mass_hist)
+    dev.off()
+}
+
+```
+## Load data 
+```{r}
+# Set working directory with desired folder path
+setwd("C:\\Users\\am\\OneDrive - Nexus365\\Year 3\\Computing\\Penguin projects")
+# Create raw data folder in directory and save the raw data in that folder
+dir.create("data_raw")
+write.csv(penguins_raw, "data_raw/penguins_raw.csv")
+# Load raw data
+penguins_raw <- read.csv("data_raw/penguins_raw.csv")
+```
+
+##Clean data 
+```{r}
+# Clean raw data using function
+penguin_cleaned<-cleaning(penguins_raw)
+# Remove empty body mass values using function
+penguin_bodymass<-remove_empty_body_mass(penguin_cleaned)
+#Save cleaned data with NA values removed for body mass in new folder called penguins_clean
+dir.create("data_clean")
+write.csv(penguin_cleaned, "data_clean/penguin_cleaned.csv")
+
+
+```
+## Filter data needed and run statistical test
+```{r}
+# Filter the dataset using function so it contains only Chinstrap and Gentoo species
+penguins_filtered<-filter_species_tocompare(penguin_bodymass,"Chinstrap penguin (Pygoscelis antarctica)","Gentoo penguin (Pygoscelis papua)")
+# Levene test checks if the variances in the populations being compared are equal. P value of <0.05 means variances are significantly different to each other.
+leveneTest(data=penguins_filtered, body_mass_g~species, centre=mean)
+# Run t test on filtered data. If variances are not equal, var.equal = FALSE. 
+t.test(data=penguins_filtered, body_mass_g~species, var.equal= FALSE)
+``
+`
+```
+## Plot histogram
+
+```{r}
+# Plot histogram using function plot_body_mass
+body_mass_hist<-plot_body_mass(penguins_filtered)
+```
+
+## Save histogram
+```{r}
+# Create new folder called 'figures'
+dir.create("figures")
+# Save histogram as png using function save_body_mass_png
+save_bodymass_png(penguins_filtered, "figures/bodymass_hist.png",15, 600, 1 )
+# Save histogram as svg file using function save_body_mass_svg
+save_bodymass_svg(penguins_filtered, "figures/bodymass_hist.svg",size=15, scaling = 1)
+```
+
