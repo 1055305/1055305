@@ -1,0 +1,98 @@
+---
+title: "penguin_assignment.rmd"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(palmerpenguins)
+library(ggplot2)
+suppressPackageStartupMessages(library(janitor))
+suppressPackageStartupMessages(library(dplyr))
+library(tidyr)
+library(ragg)
+library(svglite)
+```
+
+```{r}
+setwd("C:\\Users\\am\\OneDrive - Nexus365\\Year 3\\Computing\\Penguin projects")
+```
+
+```{r}
+cleaning <- function(data_raw){
+  data_raw %>%
+    clean_names() %>%
+    remove_empty(c("rows", "cols")) %>%
+    select(-starts_with("delta")) %>%
+    select(-comments)
+}
+
+
+remove_empty_body_mass<-function(data_clean){data_clean %>%
+    filter(!is.na(body_mass_g)) %>%
+    select(species, body_mass_g)
+}
+
+penguin_cleaned<-cleaning(penguins_raw)
+penguin_bodymass<-remove_empty_body_mass(penguin_cleaned)
+
+```
+```{r}
+filter_species_tocompare<-function(penguin_bodymass, species1, species2){
+  filter(penguin_bodymass, species == species1
+ | species == species2 , .preserve= FALSE)
+}
+penguins_filtered<-filter_species_tocompare(penguin_bodymass,"Chinstrap penguin (Pygoscelis antarctica)","Gentoo penguin (Pygoscelis papua)")
+
+```
+```{r}
+library(car)
+leveneTest(data=penguins_filtered, body_mass_g~species, centre=mean)
+t.test(data=penguins_filtered, body_mass_g~species, var.equal= FALSE)
+```
+```{r}
+plot_body_mass<-function(penguins_filtered){
+  penguins_filtered %>% 
+    ggplot( aes(x= body_mass_g, fill=species))+
+  geom_histogram(alpha=0.5, position = 'identity')+
+  xlab("Body Mass/g")+
+  ylab("Number of penguins")+
+  labs(fill="Species",)+
+  scale_fill_discrete(labels= c("Chinstrap penguin", "Gentoo penguin"))+
+  theme(legend.title = element_text( size = 7),legend.text = element_text(size = 6), legend.position = c(.89, .90), legend.key.size = unit(0.3, 'cm'))
+}
+body_mass_hist<-plot_body_mass(penguins_filtered)
+body_mass_hist
+```
+
+```{r}
+library(ragg)
+save_bodymass_png <- function(penguins_filtered, 
+                                  filename, size, res, scaling){
+  agg_png(filename, width   =  size,
+                    height  =  size, 
+                    units   =  "cm", 
+                    res     =  res, 
+                    scaling =  scaling)
+  body_mass_hist <- plot_body_mass(penguins_filtered)
+  print(body_mass_hist)
+  
+  dev.off()
+}
+save_body_mass_svg<-function(penguins_filtered,filename, size,scaling){
+  size_inches = size/2.54
+    svglite(filename, width   = size_inches, 
+                      height  = size_inches, 
+                      scaling = scaling)
+    body_mass_hist <- plot_body_mass(penguins_filtered)
+    print(body_mass_hist)
+    dev.off()
+}
+save_bodymass_png(penguins_filtered, "figures/bodymass_hist.png",15, 600, 1 )
+save_body_mass_svg(penguins_filtered, "figures/bodymass_hist.svg",size=15, scaling = 1)
+```
+
